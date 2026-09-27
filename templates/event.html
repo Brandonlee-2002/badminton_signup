@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% block title %}{{ event.title }}{% endblock %}
+{% block content %}
+<section class="event-header">
+  <p class="eyebrow">{{ event.group_name }}</p>
+  <h1>🏸 {{ event.title }}</h1>
+  <p class="event-time">{{ event.event_date|pretty_date }}, {{ event.start_time }}–{{ event.end_time }}</p>
+  <p><a class="location" href="https://www.google.com/maps/search/?api=1&query={{ quote(event.venue_name + ', ' + event.venue_address) }}" target="_blank">📍 {{ event.venue_name }}, {{ event.venue_address }}</a></p>
+  <p class="capacity">We have space for {{ [event.max_players - players|length, 0]|max }} more players</p>
+  <a class="button secondary" href="{{ url_for('calendar_event', public_code=event.public_code) }}">Add to calendar</a>
+</section>
+
+<section id="signup" class="panel">
+  <h2>Sign up</h2>
+  <p>Enter your name to join the lineup. Players are not assigned into pairs.</p>
+  <form method="post" action="{{ url_for('signup', public_code=event.public_code) }}" class="signup-form single-signup">
+    <label>Your name<input name="name" required></label>
+    <button type="submit">Sign up</button>
+  </form>
+</section>
+
+<section class="panel">
+  <h2>Players <span class="count">{{ players|length }}/{{ event.max_players }}</span></h2>
+  {% if players %}<ol class="lineup">{% for player in players %}<li><span>{{ player.name }}</span></li>{% endfor %}</ol>{% else %}<p class="muted">No players yet.</p>{% endif %}
+  <h2>Waitlist <span class="count">{{ waitlist|length }}</span></h2>
+  {% if waitlist %}<ol class="lineup">{% for player in waitlist %}<li><span>{{ player.name }}</span></li>{% endfor %}</ol>{% else %}<p class="muted">The waitlist is empty.</p>{% endif %}
+  {% if event.notes %}<p class="note">{{ event.notes }}</p>{% endif %}
+</section>
+
+<section class="panel">
+  <h2>Courts</h2>
+  <div class="court-grid">
+    {% for court in event.court_numbers.split(',') if court.strip() %}<div class="court"><strong>Court {{ court.strip() }}</strong><span>{{ event.start_time }} – {{ event.end_time }}</span></div>{% else %}<p class="muted">Court details have not been added yet.</p>{% endfor %}
+  </div>
+</section>
+{% endblock %}

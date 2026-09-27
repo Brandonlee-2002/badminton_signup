@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Badminton Signup{% endblock %}
+{% block content %}
+<section class="hero">
+  <p class="eyebrow">SESSION MANAGER</p>
+  <h1>Badminton sessions</h1>
+  <p>Create a shareable signup page for each group, session, or tournament.</p>
+</section>
+{% if events %}
+  <div class="event-grid">
+    {% for event in events %}
+      <a class="event-card" href="{{ url_for('event_page', public_code=event.public_code) }}">
+        <span class="eyebrow">{{ event.group_name }}</span>
+        <h2>{{ event.title }}</h2>
+        <p>{{ event.event_date|pretty_date }} · {{ event.start_time }}–{{ event.end_time }}</p>
+        <p>{{ event.venue_name }}</p>
+      </a>
+    {% endfor %}
+  </div>
+{% else %}
+  <div class="empty">No sessions yet. Use the Organizer page to create the first one.</div>
+{% endif %}
+{% endblock %}

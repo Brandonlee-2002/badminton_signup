@@ -1,0 +1,6 @@
+{% extends "base.html" %}
+{% block title %}Manage {{ event.title }}{% endblock %}
+{% block content %}
+<div class="admin-header"><div><p class="eyebrow">ORGANIZER AREA</p><h1>{{ event.title }}</h1><p class="muted">{{ event.event_date|pretty_date }} · Capacity: {{ event.max_players }} players</p></div><a href="{{ url_for('admin_dashboard') }}">← Dashboard</a></div>
+<section class="panel"><h2>Players and waitlist</h2>{% if players %}<div class="admin-events">{% for player in players %}<article class="admin-event"><div><strong>{{ player.name }}</strong><p>{% if player.waitlisted %}Waitlist player{% else %}Confirmed player{% endif %}</p></div><form method="post" action="{{ url_for('delete_player', player_id=player.id) }}" onsubmit="return confirm('Remove this player?');"><button class="danger" type="submit">Remove</button></form></article>{% endfor %}</div>{% else %}<p class="muted">No signups yet.</p>{% endif %}</section>
+{% endblock %}

@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Organizer Dashboard{% endblock %}
+{% block content %}
+<div class="admin-header"><div><p class="eyebrow">ORGANIZER AREA</p><h1>Dashboard</h1></div><a href="{{ url_for('admin_logout') }}">Sign out</a></div>
+<section class="panel"><h2>Create a session</h2><form method="post" class="admin-form">
+  <label>Group name<input name="group_name" placeholder="Tuesday Mixed Doubles" required></label>
+  <label>Session title<input name="title" placeholder="Tuesday night badminton" required></label>
+  <div class="two-col"><label>Date<input type="date" name="event_date" required></label><label>Maximum players<input type="number" name="max_players" value="16" min="1" required></label></div>
+  <div class="two-col"><label>Start time<input type="time" name="start_time" required></label><label>End time<input type="time" name="end_time" required></label></div>
+  <label>Venue name<input name="venue_name" placeholder="Synergy Mission" required></label>
+  <label>Venue address<input name="venue_address" placeholder="46049 Warm Springs Blvd, Fremont, CA" required></label>
+  <label>Court numbers <small>Comma-separated</small><input name="court_numbers" placeholder="2, 3, 4, 5"></label>
+  <label>Notes<textarea name="notes" placeholder="Court costs are split between players."></textarea></label>
+  <button type="submit">Create session</button>
+</form></section>
+<section class="panel"><h2>Your sessions</h2>{% if events %}<div class="admin-events">{% for event in events %}<article class="admin-event"><div><span class="eyebrow">{{ event.group_name }}</span><h3>{{ event.title }}</h3><p>{{ event.event_date|pretty_date }} · <a href="{{ url_for('admin_event', event_id=event.id) }}">Manage players</a> · <a href="{{ url_for('event_page', public_code=event.public_code) }}" target="_blank">Open public page ↗</a></p></div><form method="post" action="{{ url_for('delete_event', event_id=event.id) }}" onsubmit="return confirm('Delete this session and all signups?');"><button class="danger" type="submit">Delete</button></form></article>{% endfor %}</div>{% else %}<p class="muted">No sessions created yet.</p>{% endif %}</section>
+{% endblock %}
