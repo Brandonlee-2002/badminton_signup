@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+
+{% block title %}Manage Signup · {{ signup.title }}{% endblock %}
+
+{% block content %}
+<section class="panel manage-card">
+  <p class="eyebrow">YOUR SIGNUP</p>
+  <h1>{{ signup.title }}</h1>
+  <p class="muted">{{ signup.event_date|pretty_date }} · {{ signup.start_time }}–{{ signup.end_time }} PST</p>
+
+  {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      <div class="signup-feedback">
+        {% for category, message in messages %}
+          <div class="flash {{ category }}">{{ message }}</div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endwith %}
+
+  {% if cancelled %}
+    <div class="manage-status cancelled-status">
+      <strong>Signup cancelled</strong>
+      <span>{{ signup.name }} has been removed from the session.</span>
+    </div>
+    <a class="button secondary" href="{{ url_for('event_page', public_code=signup.public_code) }}">Return to event page</a>
+  {% else %}
+    <div class="manage-status {% if signup.waitlisted %}waitlisted-status{% else %}confirmed-status{% endif %}">
+      <strong>{% if signup.waitlisted %}Waitlisted{% else %}Confirmed player{% endif %}</strong>
+      <span>{% if signup.waitlisted %}You will be promoted in signup order when a spot opens.{% else %}You have a confirmed spot in this session.{% endif %}</span>
+    </div>
+
+    <form method="post" action="{{ url_for('edit_signup', token=token) }}" class="manage-form">
+      <label>Your name<input name="name" value="{{ signup.name }}" autocomplete="name" required></label>
+      <button type="submit">Save changes</button>
+    </form>
+
+    <div class="manage-actions">
+      <form method="post" action="{{ url_for('cancel_signup', token=token) }}" onsubmit="return confirm('Cancel your signup?');">
+        <button class="danger" type="submit">Cancel signup</button>
+      </form>
+      <a class="button secondary" href="{{ url_for('event_page', public_code=signup.public_code) }}">Back to event</a>
+    </div>
+
+    <p class="manage-help"><strong>Important: Keep this private link if you need to edit or cancel your signup later.</strong></p>
+  {% endif %}
+</section>
+{% endblock %}

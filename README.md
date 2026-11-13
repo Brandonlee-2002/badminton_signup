@@ -1,6 +1,6 @@
 # Badminton Signup Manager
 
-A small Flask + SQLite app for hosting badminton session signup pages on PythonAnywhere.
+A small Flask + SQLite app for hosting badminton session signup pages.
 
 ## Features
 
@@ -11,6 +11,7 @@ A small Flask + SQLite app for hosting badminton session signup pages on PythonA
 - Venue/map link and downloadable calendar event
 - Court list and organizer deletion controls
 - SQLite database with no external database service required
+- Private self-unsign links for players, with automatic waitlist promotion
 
 ## Run locally
 
@@ -24,6 +25,12 @@ python app.py
 ```
 
 Open `http://127.0.0.1:5000`, then select **Organizer**. The SQLite database is created automatically.
+
+## Hosting note: GitHub Pages vs. PythonAnywhere
+
+GitHub Pages only serves static HTML, CSS, and JavaScript. This application uses Flask routes and SQLite writes for shared events, signups, admin authentication, and waitlists, so the complete app cannot run on GitHub Pages alone. A static-only conversion would not share signups between players.
+
+Keep the Flask app on PythonAnywhere (or another Python host) and use GitHub Pages only for a separate static landing page, or migrate the backend to a serverless database/API such as Supabase before switching hosts. The PythonAnywhere deployment below remains the supported deployment for this repository.
 
 ## Deploy on PythonAnywhere
 
@@ -61,6 +68,8 @@ Open `http://127.0.0.1:5000`, then select **Organizer**. The SQLite database is 
 8. Reload the web app.
 
 Visit `/admin` on your new PythonAnywhere URL, sign in, and create the first session. Set the maximum number of players, then share the generated public session URL with the badminton group. Once the capacity is reached, new players are automatically placed on the waitlist. When an organizer removes a confirmed player from the admin dashboard, the first waitlisted player is promoted automatically.
+
+After a player signs up, the page opens a private signup-management link. Players can edit their name or cancel their signup from that page. They should keep the link private; cancelling removes their signup and promotes the first waitlisted player when applicable.
 
 ## Important security note
 

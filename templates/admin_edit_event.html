@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+
+{% block title %}Edit {{ event.title }}{% endblock %}
+
+{% block content %}
+<div class="admin-header">
+  <div>
+    <p class="eyebrow">ORGANIZER AREA</p>
+    <h1>Edit event details</h1>
+    <p class="muted">Changes apply immediately to the existing public event page. Existing signups are preserved.</p>
+  </div>
+  <a href="{{ url_for('admin_event', event_id=event.id) }}">← Manage players</a>
+</div>
+
+{% with messages = get_flashed_messages(with_categories=true) %}
+  {% for category, message in messages %}
+    <div class="flash {{ category }}">{{ message }}</div>
+  {% endfor %}
+{% endwith %}
+
+<section class="panel">
+  <form method="post" class="admin-form">
+    <label>Group name<input name="group_name" value="{{ event.group_name }}" required></label>
+    <label>Session title<input name="title" value="{{ event.title }}" required></label>
+    <div class="two-col">
+      <label>Date<input type="date" name="event_date" value="{{ event.event_date }}" required></label>
+      <label>Maximum players<input type="number" name="max_players" value="{{ event.max_players }}" min="1" required></label>
+    </div>
+    <div class="two-col">
+      <label>Start time <small>PST</small><input type="time" name="start_time" value="{{ event.start_time }}" required></label>
+      <label>End time <small>PST</small><input type="time" name="end_time" value="{{ event.end_time }}" required></label>
+    </div>
+    <label>Venue name<input name="venue_name" value="{{ event.venue_name }}" required></label>
+    <label>Venue address<input name="venue_address" value="{{ event.venue_address }}" required></label>
+    <label>Court numbers <small>Comma-separated</small><input name="court_numbers" value="{{ event.court_numbers }}"></label>
+    <label>Note<textarea name="notes">{{ event.notes }}</textarea></label>
+    <div class="manage-actions">
+      <button type="submit">Save changes</button>
+      <a class="button secondary" href="{{ url_for('admin_event', event_id=event.id) }}">Cancel</a>
+    </div>
+  </form>
+</section>
+{% endblock %}

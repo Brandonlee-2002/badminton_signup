@@ -1,11 +1,14 @@
 import os
+import re
 import secrets
 import sqlite3
+import hashlib
 from datetime import datetime
 from functools import wraps
 from urllib.parse import quote
 
 from flask import Flask, abort, flash, redirect, render_template, request, session, url_for, make_response
+from markupsafe import Markup, escape
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATABASE = os.environ.get("DATABASE_PATH", os.path.join(BASE_DIR, "badminton.sqlite3"))
@@ -46,6 +49,7 @@ def init_db():
             event_id INTEGER NOT NULL,
             name TEXT NOT NULL,
             waitlisted INTEGER NOT NULL DEFAULT 0,
+            cancel_token_hash TEXT,
             created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY(event_id) REFERENCES events(id) ON DELETE CASCADE
         );
@@ -58,6 +62,10 @@ def init_db():
         db.execute("ALTER TABLE events ADD COLUMN max_players INTEGER NOT NULL DEFAULT 16")
         if "max_pairs" in columns:
             db.execute("UPDATE events SET max_players = max_pairs * 2")
+
+    player_columns = {row["name"] for row in db.execute("PRAGMA table_info(players)").fetchall()}
+    if "cancel_token_hash" not in player_columns:
+        db.execute("ALTER TABLE players ADD COLUMN cancel_token_hash TEXT")
 
     # Migrate old pairs into individual players when possible.
     old_tables = {row["name"] for row in db.execute("SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
@@ -120,9 +128,52 @@ def pretty_date(value):
         return value
 
 
+@app.template_filter("linkify")
+def linkify(value):
+    """Turn plain HTTP(S) URLs into safe links while escaping other note text."""
+    text = value or ""
+    parts = []
+    last = 0
+    for match in re.finditer(r"https?://[^\s<]+", text):
+        parts.append(escape(text[last:match.start()]))
+        raw_url = match.group(0)
+        trailing = ""
+        while raw_url and raw_url[-1] in ".,!?;:)":
+            trailing = raw_url[-1] + trailing
+            raw_url = raw_url[:-1]
+        safe_url = escape(raw_url)
+        parts.append(
+            Markup(
+                '<a href="{}" target="_blank" rel="noopener noreferrer">{}</a>'
+            ).format(safe_url, safe_url)
+        )
+        parts.append(escape(trailing))
+        last = match.end()
+    parts.append(escape(text[last:]))
+    return Markup("").join(parts)
+
+
 @app.context_processor
 def inject_helpers():
     return {"quote": quote}
+
+
+def hash_cancel_token(token):
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def get_signup_by_token(token):
+    db = get_db()
+    signup = db.execute(
+        """SELECT players.*, events.public_code, events.title, events.event_date,
+                  events.start_time, events.end_time
+           FROM players
+           JOIN events ON events.id = players.event_id
+           WHERE players.cancel_token_hash = ?""",
+        (hash_cancel_token(token),),
+    ).fetchone()
+    db.close()
+    return signup
 
 
 @app.route("/")
@@ -155,9 +206,10 @@ def signup(public_code):
             flash("That name is already signed up.", "error")
         else:
             is_waitlisted = len(players) >= event["max_players"]
+            cancel_token = secrets.token_urlsafe(24)
             db.execute(
-                "INSERT INTO players (event_id, name, waitlisted) VALUES (?, ?, ?)",
-                (event["id"], name, int(is_waitlisted)),
+                "INSERT INTO players (event_id, name, waitlisted, cancel_token_hash) VALUES (?, ?, ?, ?)",
+                (event["id"], name, int(is_waitlisted), hash_cancel_token(cancel_token)),
             )
             db.commit()
             flash(
@@ -165,8 +217,68 @@ def signup(public_code):
                 if is_waitlisted else "You were added to the lineup.",
                 "success",
             )
+            db.close()
+            return redirect(url_for("manage_signup", token=cancel_token))
         db.close()
     return redirect(url_for("event_page", public_code=public_code) + "#signup")
+
+
+@app.get("/manage/<token>")
+def manage_signup(token):
+    signup = get_signup_by_token(token)
+    if signup is None:
+        abort(404)
+    return render_template("manage_signup.html", signup=signup, token=token, cancelled=False)
+
+
+@app.post("/manage/<token>/edit")
+def edit_signup(token):
+    signup = get_signup_by_token(token)
+    if signup is None:
+        abort(404)
+
+    name = request.form.get("name", "").strip()
+    if not name:
+        flash("Please enter your name.", "error")
+        return redirect(url_for("manage_signup", token=token))
+
+    db = get_db()
+    duplicate = db.execute(
+        "SELECT 1 FROM players WHERE event_id = ? AND id != ? AND lower(name) = lower(?)",
+        (signup["event_id"], signup["id"], name),
+    ).fetchone()
+    if duplicate:
+        db.close()
+        flash("That name is already signed up.", "error")
+        return redirect(url_for("manage_signup", token=token))
+
+    db.execute("UPDATE players SET name = ? WHERE id = ?", (name, signup["id"]))
+    db.commit()
+    db.close()
+    flash("Your signup was updated.", "success")
+    return redirect(url_for("manage_signup", token=token))
+
+
+@app.post("/manage/<token>/cancel")
+def cancel_signup(token):
+    signup = get_signup_by_token(token)
+    if signup is None:
+        abort(404)
+
+    db = get_db()
+    was_active = signup["waitlisted"] == 0
+    db.execute("DELETE FROM players WHERE id = ?", (signup["id"],))
+    if was_active:
+        next_player = db.execute(
+            "SELECT id FROM players WHERE event_id = ? AND waitlisted = 1 ORDER BY id LIMIT 1",
+            (signup["event_id"],),
+        ).fetchone()
+        if next_player:
+            db.execute("UPDATE players SET waitlisted = 0 WHERE id = ?", (next_player["id"],))
+    db.commit()
+    db.close()
+    flash("Your signup was cancelled.", "success")
+    return render_template("manage_signup.html", signup=signup, token=token, cancelled=True)
 
 
 @app.route("/calendar/<public_code>.ics")
@@ -247,6 +359,59 @@ def admin_event(event_id):
     if event is None:
         abort(404)
     return render_template("admin_event.html", event=event, players=players)
+
+
+@app.route("/admin/events/<int:event_id>/edit", methods=["GET", "POST"])
+@admin_required
+def edit_event(event_id):
+    db = get_db()
+    event = db.execute("SELECT * FROM events WHERE id = ?", (event_id,)).fetchone()
+    if event is None:
+        db.close()
+        abort(404)
+
+    if request.method == "POST":
+        required = [
+            "group_name", "title", "event_date", "start_time", "end_time",
+            "venue_name", "venue_address",
+        ]
+        if any(not request.form.get(field, "").strip() for field in required):
+            flash("Please complete all required event fields.", "error")
+        else:
+            try:
+                max_players = max(1, int(request.form.get("max_players", 16)))
+            except ValueError:
+                max_players = None
+
+            if max_players is None:
+                flash("Maximum players must be a whole number.", "error")
+            else:
+                db.execute(
+                    """UPDATE events SET group_name = ?, title = ?, event_date = ?,
+                       start_time = ?, end_time = ?, venue_name = ?, venue_address = ?,
+                       max_players = ?, court_numbers = ?, notes = ?
+                       WHERE id = ?""",
+                    (
+                        request.form["group_name"].strip(),
+                        request.form["title"].strip(),
+                        request.form["event_date"],
+                        request.form["start_time"],
+                        request.form["end_time"],
+                        request.form["venue_name"].strip(),
+                        request.form["venue_address"].strip(),
+                        max_players,
+                        request.form.get("court_numbers", "").strip(),
+                        request.form.get("notes", "").strip(),
+                        event_id,
+                    ),
+                )
+                db.commit()
+                db.close()
+                flash("Event details updated.", "success")
+                return redirect(url_for("admin_event", event_id=event_id))
+
+    db.close()
+    return render_template("admin_edit_event.html", event=event)
 
 
 @app.post("/admin/players/<int:player_id>/delete")
