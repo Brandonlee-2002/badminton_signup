@@ -441,6 +441,41 @@ p {
   gap: 15px;
 }
 
+.my-signup {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line);
+}
+
+.my-signup p {
+  margin-bottom: 14px;
+  color: var(--muted);
+}
+
+.my-signup-edit {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 12px;
+}
+
+.my-signup-cancel {
+  margin-top: 12px;
+}
+
+.my-signup-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 600px) {
+  .my-signup-edit {
+    grid-template-columns: 1fr;
+  }
+}
+
 .single-signup {
   grid-template-columns: minmax(0, 1fr) auto;
   align-items: end;

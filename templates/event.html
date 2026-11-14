@@ -34,6 +34,18 @@
           <label>Your name<input name="name" autocomplete="name" placeholder="e.g. Alex Chen" required></label>
           <button type="submit">Sign me up</button>
         </form>
+        {% if my_signup %}
+          <div class="my-signup">
+            <p><strong>You’re signed up as {{ my_signup.name }}.</strong> {% if my_signup.waitlisted %}You’re currently on the waitlist.{% else %}Your spot is confirmed.{% endif %}</p>
+            <form method="post" action="{{ url_for('edit_signup', token=my_signup_token) }}" class="my-signup-edit">
+              <label>Edit your name<input name="name" value="{{ my_signup.name }}" autocomplete="name" required></label>
+              <button type="submit">Save changes</button>
+            </form>
+            <form method="post" action="{{ url_for('cancel_signup', token=my_signup_token) }}" class="my-signup-cancel" onsubmit="return confirm('Unsign you from this session?');">
+              <button class="danger" type="submit">Unsign me</button>
+            </form>
+          </div>
+        {% endif %}
       </section>
 
       <section class="panel">

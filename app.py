@@ -128,6 +128,18 @@ def pretty_date(value):
         return value
 
 
+@app.template_filter("pretty_timestamp")
+def pretty_timestamp(value):
+    if not value:
+        return ""
+    for format_string in ("%Y-%m-%d %H:%M:%S", "%Y-%m-%dT%H:%M:%S"):
+        try:
+            return datetime.strptime(value, format_string).strftime("%b %-d, %Y at %-I:%M %p")
+        except ValueError:
+            continue
+    return value
+
+
 @app.template_filter("linkify")
 def linkify(value):
     """Turn plain HTTP(S) URLs into safe links while escaping other note text."""
@@ -187,7 +199,21 @@ def home():
 @app.route("/j/<public_code>")
 def event_page(public_code):
     event, players, waitlist = event_data(public_code)
-    return render_template("event.html", event=event, players=players, waitlist=waitlist)
+    my_signup = None
+    signup_tokens = session.get("signup_tokens", {})
+    token = signup_tokens.get(public_code)
+    if token:
+        candidate = get_signup_by_token(token)
+        if candidate is not None and candidate["public_code"] == public_code:
+            my_signup = candidate
+        else:
+            signup_tokens = dict(signup_tokens)
+            signup_tokens.pop(public_code, None)
+            session["signup_tokens"] = signup_tokens
+    return render_template(
+        "event.html", event=event, players=players, waitlist=waitlist,
+        my_signup=my_signup, my_signup_token=token if my_signup else None,
+    )
 
 
 @app.post("/j/<public_code>/signup")
@@ -212,13 +238,16 @@ def signup(public_code):
                 (event["id"], name, int(is_waitlisted), hash_cancel_token(cancel_token)),
             )
             db.commit()
+            signup_tokens = dict(session.get("signup_tokens", {}))
+            signup_tokens[public_code] = cancel_token
+            session["signup_tokens"] = signup_tokens
             flash(
                 "The session is full, so you were added to the waitlist."
                 if is_waitlisted else "You were added to the lineup.",
                 "success",
             )
             db.close()
-            return redirect(url_for("manage_signup", token=cancel_token))
+            return redirect(url_for("event_page", public_code=public_code) + "#signup")
         db.close()
     return redirect(url_for("event_page", public_code=public_code) + "#signup")
 
@@ -250,13 +279,13 @@ def edit_signup(token):
     if duplicate:
         db.close()
         flash("That name is already signed up.", "error")
-        return redirect(url_for("manage_signup", token=token))
+        return redirect(url_for("event_page", public_code=signup["public_code"]) + "#signup")
 
     db.execute("UPDATE players SET name = ? WHERE id = ?", (name, signup["id"]))
     db.commit()
     db.close()
     flash("Your signup was updated.", "success")
-    return redirect(url_for("manage_signup", token=token))
+    return redirect(url_for("event_page", public_code=signup["public_code"]) + "#signup")
 
 
 @app.post("/manage/<token>/cancel")
@@ -277,8 +306,12 @@ def cancel_signup(token):
             db.execute("UPDATE players SET waitlisted = 0 WHERE id = ?", (next_player["id"],))
     db.commit()
     db.close()
+    signup_tokens = dict(session.get("signup_tokens", {}))
+    if signup_tokens.get(signup["public_code"]) == token:
+        signup_tokens.pop(signup["public_code"], None)
+        session["signup_tokens"] = signup_tokens
     flash("Your signup was cancelled.", "success")
-    return render_template("manage_signup.html", signup=signup, token=token, cancelled=True)
+    return redirect(url_for("event_page", public_code=signup["public_code"]) + "#signup")
 
 
 @app.route("/calendar/<public_code>.ics")
