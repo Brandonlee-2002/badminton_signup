@@ -74,3 +74,21 @@ After a player signs up, the page opens a private signup-management link. Player
 ## Important security note
 
 Change the default admin password before publishing. This starter app intentionally keeps the admin area simple. For a larger public deployment, add CSRF protection, rate limiting, and per-organizer accounts.
+
+## AI usage
+
+This website was developed with assistance from AI during the design, implementation, debugging, and usability-review process.
+
+AI assistance was used to:
+
+- Build and refine the Flask application structure and user interface
+- Add player signup, waitlist, editing, and self-unsign functionality
+- Create private signup-management tokens so players can manage only their own entries
+- Add event editing tools for organizers
+- Improve responsive layouts for desktop, tablet, and mobile screens
+- Add Apple Maps and Google Maps links
+- Make URLs in event notes clickable while safely escaping other text
+- Diagnose PythonAnywhere deployment errors and template/backend mismatches
+- Add validation, database migration support, and syntax checks
+
+The application code, deployment configuration, and user-facing behavior were reviewed and adjusted by the project owner. AI-generated changes should still be tested before production use, especially authentication, database migrations, and deployment settings.
